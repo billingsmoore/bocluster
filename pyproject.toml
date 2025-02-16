@@ -4,27 +4,24 @@ build-backend = "hatchling.build"
 
 [project]
 dependencies=[
-    "datasets",
-    "faiss-cpu",
-    "huggingface_hub",
-    "matplotlib",
-    "numpy",
-    "pandas",
-    "plotly",
-    "optuna",
-    "seaborn",
-    "sentence_transformers", 
-    "scikit-learn",
-    "tqdm",
-    "umap-learn"
+  "botok",
+  "collections",
+  "matplotlib",
+  "numpy",
+  "pandas",
+  "sentence_transformers",
+  "sklearn",
+  "textwrap",
+  "tqdm",
+  "umap"
 ]
 
 name = "easy_text_clustering"
-version = "1.3.5"
+version = "0.0.1"
 authors = [
   { name="billingsmoore", email="billingsmoore@gmail.com" },
 ]
-description = "User-friendly, low-code text clustering"
+description = "Low code text clustering for the Tibetan language"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -34,7 +31,7 @@ classifiers = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/easy_text_clustering"]
+packages = ["bowordcountvectorizer"]
 
 [project.urls]
 Homepage = "https://github.com/billingsmoore/easy_text_clustering"
