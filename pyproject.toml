@@ -5,19 +5,17 @@ build-backend = "hatchling.build"
 [project]
 dependencies=[
   "botok",
-  "collections",
   "matplotlib",
   "numpy",
   "pandas",
   "sentence_transformers",
-  "sklearn",
-  "textwrap",
+  "scikit-learn",
   "tqdm",
-  "umap"
+  "umap-learn"
 ]
 
-name = "easy_text_clustering"
-version = "0.0.1"
+name = "bocluster"
+version = "0.1.0"
 authors = [
   { name="billingsmoore", email="billingsmoore@gmail.com" },
 ]
@@ -31,8 +29,8 @@ classifiers = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["bowordcountvectorizer"]
+packages = ["src/bocluster"]
 
 [project.urls]
-Homepage = "https://github.com/billingsmoore/easy_text_clustering"
-Issues = "https://github.com/billingsmoore/easy_text_clustering/issues"
+Homepage = "https://github.com/billingsmoore/bocluster"
+Issues = "https://github.com/billingsmoore/bocluster/issues"

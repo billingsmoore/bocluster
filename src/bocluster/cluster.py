@@ -20,10 +20,9 @@ import botok
 
 logging.basicConfig(level=logging.INFO)
 
-class ClusterClassifier:
+class BoClusterClassifier:
     def __init__(
         self,
-        batch_size = 100_000,
         sample_size = 100_000,
         embed_model_name="billingsmoore/minilm-bo",
         embed_device="cpu",
@@ -39,7 +38,6 @@ class ClusterClassifier:
         clustering, and summarization of text data.
 
         Args:
-            batch_size (int): Number of samples to process in each batch (default is 1).
             embed_model_name (str): Name of the pre-trained embedding model to use (default is "all-MiniLM-L6-v2").
             embed_device (str): The device to use for embedding generation. Options are 'cpu' or 'cuda' (default is 'cpu').
             embed_batch_size (int): Number of samples per batch during embedding generation (default is 64).
@@ -62,7 +60,6 @@ class ClusterClassifier:
 
         """
         
-        self.batch_size = batch_size
         self.sample_size = sample_size
         
         # Embedding model parameters
@@ -83,13 +80,14 @@ class ClusterClassifier:
 
         # Initialize attributes for embeddings, projections, and clustering
         self.embeddings = None
-        self.faiss_index = None
         self.cluster_labels = None
         self.texts = None
         self.projections = None
         self.mapper = None
         self.id2label = None
         self.label2docs = None
+        self.cluster_summaries = {}
+
 
         # Initialize the embedding model
         self.embed_model = SentenceTransformer(
@@ -97,11 +95,9 @@ class ClusterClassifier:
         )
         self.embed_model.max_seq_length = self.embed_max_seq_length
 
-        self.cluster_summaries = {}
 
     def fit(self, 
             texts=None,
-            batch_size=None, 
             projection_args=None,
             clustering_args=None
             ):
@@ -111,8 +107,6 @@ class ClusterClassifier:
 
         Args:
             texts (list): List of input texts to process. If not provided, the existing `self.texts` is used.
-            batch_size (int, optional): Number of texts to process in a batch. If provided, it overrides the default `self.batch_size`.
-            projection_algorithm (str, optional): The dimensionality reduction technique to use. Options include 'pca', 'tsvd', or 'umap'. Defaults to `self.projection_algorithm`.
             projection_args (dict, optional): Additional parameters for the projection algorithm (e.g., UMAP settings).
             clustering_algorithm (str, optional): Clustering algorithm to apply. Options include 'dbscan', 'kmeans', etc. Defaults to `self.clustering_algorithm`.
             clustering_args (dict, optional): Additional parameters for the clustering algorithm (e.g., DBSCAN settings).
@@ -122,26 +116,12 @@ class ClusterClassifier:
                 - embeddings (numpy.ndarray): The embeddings for the input texts.
                 - cluster_labels (numpy.ndarray): The cluster labels assigned to each document.
                 - cluster_summaries (dict, optional): The summaries of each cluster, if `self.summary_create` is True.
-        
-        Raises:
-            ValueError: If the provided `batch_size` or `projection_algorithm` is invalid.
         """
-        
-        # If batch size has changed, reset embeddings and projections
-        if (batch_size is not None) and (batch_size != self.batch_size):
-            self.embeddings = None
-            self.projections = None
 
         # Update internal settings with new or default parameters
-        self.batch_size = batch_size or self.batch_size
         self.texts = texts or self.texts
         self.projection_args = projection_args or self.projection_args
         self.clustering_args = clustering_args or self.clustering_args
-
-        # Preprocess the texts if batch size > 1
-        if self.batch_size > 1:
-            logging.info("Batching texts...")
-            self.texts = self.batch_and_join(self.texts, self.batch_size)
 
         # Embedding generation: either from scratch or using precomputed embeddings
         if self.embeddings is None:
@@ -164,9 +144,7 @@ class ClusterClassifier:
         # Summarization: Optionally create summaries for each cluster
         if self.summary_create:
             logging.info("Summarizing cluster centers...")
-            self.cluster_summaries = self.summarize(self.texts, self.cluster_labels)
-        else:
-            self.cluster_summaries = None
+            self.summarize()
 
     def embed(self, texts):
         """
@@ -190,7 +168,7 @@ class ClusterClassifier:
 
         return embeddings
 
-    def project(self, embeddings, projection_algorithm, projection_args, sample_size=None):
+    def project(self, embeddings, projection_args, sample_size=None):
         """
         Projects embeddings into a lower-dimensional space using a specified dimensionality reduction algorithm.
 
@@ -206,7 +184,6 @@ class ClusterClassifier:
       """
 
         # Set or update the projection algorithm to be used
-        self.projection_algorithm = projection_algorithm or self.projection_algorithm
         self.sample_size = sample_size or self.sample_size
 
         if len(embeddings) <= self.sample_size:
@@ -239,7 +216,7 @@ class ClusterClassifier:
 
             return projections, mapper
         
-    def cluster(self, embeddings, clustering_algorithm, clustering_args):
+    def cluster(self, embeddings, clustering_args):
 
         """
         Applies a specified clustering algorithm to the given embeddings and stores the resulting cluster labels.
@@ -346,7 +323,7 @@ class ClusterClassifier:
             self.cluster_centers[label] = (x, y)
 
     # create a summary label for one cluster
-    def label_cluster(idxs: list, count_vectorizer, tfidf_res):
+    def label_cluster(self, idxs: list, count_vectorizer, tfidf_res):
         
         average_tfidf_scores = np.asarray(tfidf_res[idxs].mean(axis=0)).flatten()
         top_indices = np.argsort(average_tfidf_scores)[::-1]  # Sort descending
@@ -545,22 +522,23 @@ class ClusterClassifier:
                 colorbar=False,
             )
 
-        for label in self.cluster_summaries.keys():
-                        if label == -1:
-                            continue  # Skip the outlier cluster
-                        summary = self.cluster_summaries[label]
-                        position = self.cluster_centers[label]
-                        t = ax.text(
-                            position[0],
-                            position[1],
-                            summary,
-                            horizontalalignment='center',
-                            verticalalignment='center',
-                            fontsize=6,
-                            font=fpath
-                        )
-                        # Set the background for the text annotation for better readability
-                        t.set_bbox(dict(facecolor='white', alpha=0.9, linewidth=0, boxstyle='square,pad=0.1'))
+        if self.cluster_summaries is not None:
+            for label in self.cluster_summaries.keys():
+                            if label == -1:
+                                continue  # Skip the outlier cluster
+                            summary = self.cluster_summaries[label]
+                            position = self.cluster_centers[label]
+                            t = ax.text(
+                                position[0],
+                                position[1],
+                                summary,
+                                horizontalalignment='center',
+                                verticalalignment='center',
+                                fontsize=6,
+                                font=fpath
+                            )
+                            # Set the background for the text annotation for better readability
+                            t.set_bbox(dict(facecolor='white', alpha=0.9, linewidth=0, boxstyle='square,pad=0.1'))
 
         # Turn off the axis for a cleaner plot
         ax.set_axis_off()
