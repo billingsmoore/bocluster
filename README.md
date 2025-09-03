@@ -1,6 +1,6 @@
 # Text Clustering
 
-This repository contains tools to easily embed and cluster texts as well as label clusters and produce visualizations of those labeled clusters. 
+This repository contains tools to easily embed and cluster texts in the Tibetan language as well as label clusters and produce visualizations of those labeled clusters. 
 
 ## Install 
 
